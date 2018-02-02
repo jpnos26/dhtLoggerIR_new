@@ -23,8 +23,8 @@ Connect DHT21 / AMS2301 at GPIO2
 ////////////// START CONFIGURAZIONE ///////////
 
 // WiFi connection
-const char* ssid = "home";
-const char* password = "marzia2009";
+const char* ssid = "ssid";
+const char* password = "ssid pwd";
 
 //enable screen !!!Attenzione se non si ha lo schermo mettere a zero
 byte screen_on = 1;     //abilito la visualizzazione
