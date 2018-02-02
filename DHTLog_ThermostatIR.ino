@@ -23,8 +23,8 @@ Connect DHT21 / AMS2301 at GPIO2
 ////////////// START CONFIGURAZIONE ///////////
 
 // WiFi connection
-const char* ssid = "ssid";
-const char* password = "ssid_password";
+const char* ssid = "home";
+const char* password = "marzia2009";
 
 //enable screen !!!Attenzione se non si ha lo schermo mettere a zero
 byte screen_on = 1;     //abilito la visualizzazione
@@ -40,7 +40,7 @@ byte dht22_media = 1  ;   // 0 lettura dht pin diretta -- 1 lettura Mediata
 
 
 // Static IP details...
-int dhcp = 1 ;// 0 uso static ip ---- 1 uso dhcp
+int dhcp = 0 ;// 0 uso static ip ---- 1 uso dhcp
 IPAddress ip(192, 168, 1, 40);
 IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
@@ -49,7 +49,7 @@ IPAddress dns(192,168,1,1);
 
 
 // storage for Measurements; keep some mem free; allocate remainder
-#define KEEP_MEM_FREE 8192
+#define KEEP_MEM_FREE 9216
 #define MEAS_SPAN_H 24
 unsigned long ulMeasCount=0;          // values already measured
 unsigned long ulNoMeasValues=0;       // size of array
@@ -263,77 +263,6 @@ void WiFiStart()
   }
  }
 
-/////////////////////////////////////
-// make html table for measured data
-/////////////////////////////////////
-unsigned long MakeTable (WiFiClient *pclient, bool bStream)
-{
-  unsigned long ulLength=0;
-   irrecv.setUnknownThreshold(MIN_UNKNOWN_SIZE);
-  // here we build a big table.
-  // we cannot store this in a string as this will blow the memory   
-  // thus we count first to get the number of bytes and later on 
-  // we stream this out
-  if (ulMeasCount==0)
-  {
-    String sTable = "Non ci sono dati .<BR>";
-    if (bStream)
-    {
-      pclient->print(sTable);
-    }
-    ulLength+=sTable.length();
-  }
-  else
-  { 
-    unsigned long ulEnd;
-    if (ulMeasCount>ulNoMeasValues)
-    {
-      ulEnd=ulMeasCount-ulNoMeasValues;
-    }
-    else
-    {
-      ulEnd=0;
-    }
-    
-    String sTable;
-    sTable = "<table style=\"width:800px; margin:0 auto\"><tr><th>tempo</th><th>T &deg;C</th><th>Humidita &#037;</th></tr>";
-    sTable += "<style>table, th, td {border: 2px solid black; border-collapse: collapse;} th, td {padding: 5px;} th {text-align: left;}</style>";
-    for (unsigned long li=ulMeasCount;li>ulEnd;li--)
-    {
-      unsigned long ulIndex=(li-1)%ulNoMeasValues;
-      sTable += "<tr><td>";
-      sTable += epoch_to_string(pulTime[ulIndex]).c_str();
-      sTable += "</td><td>";
-      sTable += pfTemp[ulIndex];
-      sTable += "</td><td>";
-      sTable += pfHum[ulIndex];
-      sTable += "</td></tr>";
-
-      // play out in chunks of 1k
-      if(sTable.length()>1024)
-      {
-        if(bStream)
-        {
-          pclient->print(sTable);
-          //pclient->write(sTable.c_str(),sTable.length());
-        }
-        ulLength+=sTable.length();
-        sTable="";
-      }
-    }
-    
-    // remaining chunk
-    sTable+="</table>";
-    ulLength+=sTable.length();
-    if(bStream)
-    {
-      pclient->print(sTable);
-      //pclient->write(sTable.c_str(),sTable.length());
-    }   
-  }
-  
-}
-  
 
 ////////////////////////////////////////////////////
 // make google chart object table for measured data
@@ -472,11 +401,19 @@ void ReadDht(){
       }   
       else
       {
-        if (dht22_media == 1){
-          dhtTemp1 = (dhtTemp+dhtTemp0)/2;
-          dhtTemp= dhtTemp1;
-          dhtUm1= (dhtUm+dhtUm0)/2;
-          dhtUm=dhtUm1;  
+        if (dht22_media == 1)
+        {
+          if (ulMeasCount > 0){
+            dhtTemp1 = (dhtTemp+dhtTemp0)/2;
+            dhtTemp= dhtTemp1;
+            dhtUm1= (dhtUm+dhtUm0)/2;
+            dhtUm=dhtUm1;  
+          }
+          else 
+          {
+            dhtTemp=dhtTemp0;
+            dhtUm=dhtUm0; 
+          }
         }
         else{
           dhtTemp=dhtTemp0;
@@ -720,7 +657,7 @@ if ( screen_on == 1){
     sResponse += epoch_to_string(pulTime[iIndex]).c_str();
     sResponse += F(" <BR></p>\n<div style=\"width:400px; margin:0 auto\">\n<div id=\"gaugetemp_div\" style=\"float:left; width:200px; height: 200px\"></div> \n<div id=\"gaugehum_div\" style=\"float:left; width:200px; height: 200px\"></div>\n<div style=\"clear:both\"></div>\n</div>");
     
-    sResponse2 +=F("<p style=\"text-align: center;\"><input name=\"grafico\" type=\"button\"  onclick=\"location.href= '/grafico'\"  value=\"Grafico\" />&nbsp; <input name=\"tabella\" type=\"button\" value=\"Tabella\" onclick=\"location.href= '/tabella'\"/>&nbsp; <input name=\"Irdecoder\" type=\"button\" value=\"IrDecoder\" onclick=\"location.href= '/irDecoder'\"/>&nbsp; <input name=\"IrSender\" type=\"button\" value=\"irSEnder\" onclick=\"location.href= '/irSender'\"/>&nbsp; <input name=\"IrSender\" type=\"button\" value=\"Zone\" onclick=\"location.href= '/zone'\"/></p>\r\n");
+    sResponse2 +=F("<p style=\"text-align: center;\"><input name=\"grafico\" type=\"button\"  onclick=\"location.href= '/grafico'\"  value=\"Grafico\" />&nbsp; <input name=\"Irdecoder\" type=\"button\" value=\"IrDecoder\" onclick=\"location.href= '/irDecoder'\"/>&nbsp; <input name=\"IrSender\" type=\"button\" value=\"irSEnder\" onclick=\"location.href= '/irSender'\"/>&nbsp; <input name=\"IrSender\" type=\"button\" value=\"Zone\" onclick=\"location.href= '/zone'\"/></p>\r\n");
 
     sResponse2 += MakeHTTPFooter().c_str();
     
@@ -729,33 +666,7 @@ if ( screen_on == 1){
     client.print(sResponse);
     client.print(sResponse2);
   }
-  else if(sPath=="/tabella")
-  ////////////////////////////////////
-  // format the html page for /tabelle
-  ////////////////////////////////////
-  {
-    ulReqcount++;
-    unsigned long ulSizeList = MakeTable(&client,false); // get size of table first
-    
-    sResponse  = F("<html><head><title>WI-FI Logger per Temperatura e Umidita</title></head><body>");
-    sResponse += F("<font color=\"#000000\"><body bgcolor=\"#d0d0f0\">");
-    sResponse += F("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=yes\">");
-    sResponse += F("<p align=\"center\"><FONT SIZE=+3><FONT-WEIGHT=bold>WI-FI Logger per Temperatura e Umidita");
-    sResponse += F("<FONT SIZE=+1><FONT-WEIGHT=normal><BR>");
-    sResponse += F("<a href=\"/\">Home Page</a><BR><BR>Misurazioni ogni: ");
-    sResponse += ulMeasDelta_ms;
-    sResponse += F("ms<BR></p>");
-    // here the big table will follow later - but let us prepare the end first
-      
-    // part 2 of response - after the big table
-    sResponse2 = MakeHTTPFooter().c_str();
-    
-    // Send the response to the client - delete strings after use to keep mem low
-    client.print(MakeHTTPHeader(sResponse.length()+sResponse2.length()+ulSizeList).c_str()); 
-    client.print(sResponse); sResponse="";
-    MakeTable(&client,true);
-    client.print(sResponse2);
-  }
+  
   else if(sPath=="/grafico")
   ///////////////////////////////////
   // format the html page for /grafik
